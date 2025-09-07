@@ -225,8 +225,10 @@
             const swipeThreshold = 100;
             const verticalSwipeThreshold = -100;
 
-            if (deltaY < verticalSwipeThreshold && videoIndex >= videoData.length) {
+            if (deltaY < verticalSwipeThreshold) {
                 loadMoreVideos();
+                videoCard.style.transition = 'transform 0.3s ease-in-out';
+                videoCard.style.transform = 'translateX(0) rotate(0) translateY(0)';
             } else if (deltaX > swipeThreshold) {
                 onSwipeComplete('right');
             } else if (deltaX < -swipeThreshold) {
