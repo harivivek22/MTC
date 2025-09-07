@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Swiper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Cool Gray & Blue -->
+    <!-- Application Structure Plan: This version is a diagnostic tool, designed as a single-view SPA to prove the core functionality of loading and displaying content from the CSV file. It eliminates the interactive 'My Lists' view and all local storage logic to isolate the problem. The user flow is simple: load the page, and the first video from the CSV should be displayed. This structure was chosen as the most direct way to debug the file loading issue. -->
+    <!-- Visualization & Content Choices: Report Info: Video data from CSV -> Goal: Inform -> Viz/Presentation Method: The first video from the CSV is displayed with its title and thumbnail. A 'Watch Now' button is present. -> Interaction: None. This version is for testing only. -> Justification: By removing all other complexity, this serves as a definitive test to confirm that the file is loading correctly from GitHub, parsing, and populating the HTML. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .video-card {
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+            transform-origin: center;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden">
+
+    <div class="w-full max-w-sm h-full flex flex-col">
+        <!-- Main Content Area -->
+        <main class="flex-grow overflow-hidden flex flex-col">
+            <!-- Feed View -->
+            <div id="feed-view" class="w-full h-full flex flex-col items-center">
+                <div class="mb-4 text-center">
+                    <h1 id="video-title" class="text-2xl font-bold text-gray-100">Loading Videos...</h1>
+                    <p id="instruction-text" class="text-gray-400">Please wait.</p>
+                </div>
+                <div class="relative w-full rounded-3xl overflow-hidden shadow-2xl" style="aspect-ratio: 9 / 16;">
+                    <div id="video-card" class="video-card relative w-full h-full bg-gray-800 rounded-3xl">
+                        <div class="absolute inset-0 bg-cover bg-center rounded-3xl" id="video-thumbnail"></div>
+                    </div>
+                    <div class="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/70 via-black/40 to-transparent">
+                        <a id="watch-button" href="#" target="_blank" class="w-full flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 text-lg">
+                            Watch Now
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const videoTitle = document.getElementById('video-title');
+        const videoThumbnail = document.getElementById('video-thumbnail');
+        const watchButton = document.getElementById('watch-button');
+        const instructionText = document.getElementById('instruction-text');
+        
+        const getYouTubeId = (url) => {
+            const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/ ]{11})/i;
+            const match = url ? url.match(regex) : null;
+            return match ? match[1] : null;
+        };
+
+        const generateYouTubeThumbnailUrl = (videoId) => `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+
+        const parseCSV = (text) => {
+            const lines = text.split('\n').filter(line => line.trim() !== '');
+            if (lines.length === 0) return [];
+            const headers = lines[0].split(',').map(header => header.trim());
+            const data = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(value => value.trim());
+                if (values.length === headers.length) {
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        row[header] = values[index];
+                    });
+                    data.push(row);
+                }
+            }
+            return data;
+        };
+        
+        const loadInitialData = () => {
+             // Using jsDelivr CDN with a version number to bypass cache
+             const csvUrl = `https://cdn.jsdelivr.net/gh/harivivek22/MTC/videos.csv?v=${new Date().getTime()}`;
+             fetch(csvUrl)
+                .then(response => response.ok ? response.text() : Promise.reject(new Error(`Failed to load CSV from ${csvUrl}`)))
+                .then(csvText => {
+                    const videoData = parseCSV(csvText);
+                    if (videoData.length === 0) {
+                        throw new Error('CSV file is empty or malformed. Ensure it has a header row ("Title,URL") and valid data rows.');
+                    }
+                    const firstVideo = videoData[0];
+                    const videoId = getYouTubeId(firstVideo.URL);
+                    if (!videoId) {
+                        throw new Error(`Video URL in CSV is invalid: ${firstVideo.URL}`);
+                    }
+                    videoTitle.textContent = firstVideo.Title;
+                    videoThumbnail.style.backgroundImage = `url('${generateYouTubeThumbnailUrl(videoId)}')`;
+                    watchButton.href = firstVideo.URL;
+                    instructionText.textContent = "Video loaded successfully.";
+                })
+                .catch(error => {
+                    videoTitle.textContent = "ERROR";
+                    instructionText.textContent = error.message || "An unknown error occurred. Please check the console for details.";
+                    console.error("Fetch or parsing error:", error);
+                });
+        };
+
+        document.addEventListener('DOMContentLoaded', loadInitialData);
+    </script>
+</body>
+</html>
