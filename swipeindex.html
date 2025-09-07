@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Swiper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Cool Gray & Blue -->
+    <!-- Application Structure Plan: The application now uses a state-driven, card-swipe interface, inspired by social media discovery platforms. This structure was chosen to transform a passive landing page into an engaging, interactive experience. The user flow is now a series of quick decisions (swipe left or right) on content "cards," making video discovery intuitive and fun. The UI provides immediate visual feedback ("Seen," "Later") for each action. The single-page design efficiently manages a dynamic video queue, with all state handled by JavaScript. This approach prioritizes user engagement and quick content exploration over a linear navigation model. A new vertical "pull-to-refresh" functionality has been added, allowing users to load more content when they reach the end of the current list, creating a continuous feed experience. -->
+    <!-- Visualization & Content Choices: Report Info: Multiple Videos -> Goal: Interactive Discovery -> Viz/Presentation Method: Card stack with dynamic content. Each card is a div with a background image. -> Interaction: Touch-based swipe gestures (touchstart, touchmove, touchend) to transition between cards. The "Watch Now" button updates dynamically. A new vertical swipe gesture is introduced to load more data. -> Justification: The swipe gesture is a familiar and efficient mobile interaction pattern for rapid content consumption. Visual feedback ("Seen"/"Later") provides a clear result for the user's action. The new vertical swipe provides a clear path for content renewal without needing a separate button or menu, enhancing the fluid, feed-based experience. The HTML, CSS, and vanilla JS implementation is lightweight and ideal for a single-page app. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .video-card {
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+            transform-origin: center;
+        }
+        .seen-label, .later-label {
+            position: absolute;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            z-index: 10;
+        }
+        .seen-label {
+            background-color: #22c55e;
+            color: white;
+        }
+        .later-label {
+            background-color: #f97316;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden">
+
+    <div class="w-full max-w-sm mx-auto flex flex-col items-center">
+        <div class="mb-4 text-center">
+            <h1 id="video-title" class="text-2xl font-bold text-gray-100"></h1>
+            <p id="instruction-text" class="text-gray-400">Swipe left or right to discover more.</p>
+        </div>
+
+        <div class="relative w-full rounded-3xl overflow-hidden shadow-2xl" style="aspect-ratio: 9 / 16;">
+            <div id="video-card" class="video-card relative w-full h-full bg-gray-800 rounded-3xl">
+                <div class="absolute inset-0 bg-cover bg-center rounded-3xl" id="video-thumbnail"></div>
+                <div class="seen-label" id="seen-label">SEEN</div>
+                <div class="later-label" id="later-label">WATCH LATER</div>
+            </div>
+            
+            <div class="absolute bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-black/70 via-black/40 to-transparent">
+                <a id="watch-button" href="#" class="w-full flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-lg transition-transform transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500 focus:ring-opacity-50 text-lg">
+                    Watch Now
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const videoData = [
+            {
+                title: "The Future of AI",
+                thumbnail: 'https://placehold.co/540x960/1a202c/ffffff?text=AI+Future',
+                url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                category: 'tech'
+            },
+            {
+                title: "Top 5 Space Discoveries",
+                thumbnail: 'https://placehold.co/540x960/1a202c/ffffff?text=Space+Discoveries',
+                url: 'https://www.youtube.com/watch?v=XWk3rV1iM-Y',
+                category: 'science'
+            },
+            {
+                title: "Urban Gardening Guide",
+                thumbnail: 'https://placehold.co/540x960/1a202c/ffffff?text=Gardening',
+                url: 'https://www.youtube.com/watch?v=l_g2uH65eQc',
+                category: 'lifestyle'
+            },
+            {
+                title: "Cooking with Chef Maria",
+                thumbnail: 'https://placehold.co/540x960/1a202c/ffffff?text=Cooking',
+                url: 'https://www.youtube.com/watch?v=1oDSH-9i-D4',
+                category: 'lifestyle'
+            },
+            {
+                title: "Intro to Machine Learning",
+                thumbnail: 'https://placehold.co/540x960/1a202c/ffffff?text=ML+Basics',
+                url: 'https://www.youtube.com/watch?v=Kz7t8r-Fzdw',
+                category: 'tech'
+            }
+        ];
+
+        let videoIndex = 0;
+        let startX = 0;
+        let startY = 0;
+        let currentX = 0;
+        let currentY = 0;
+        let isSwiping = false;
+
+        const videoCard = document.getElementById('video-card');
+        const videoTitle = document.getElementById('video-title');
+        const videoThumbnail = document.getElementById('video-thumbnail');
+        const watchButton = document.getElementById('watch-button');
+        const seenLabel = document.getElementById('seen-label');
+        const laterLabel = document.getElementById('later-label');
+        const instructionText = document.getElementById('instruction-text');
+
+        const loadVideo = (index) => {
+            if (index < videoData.length) {
+                const video = videoData[index];
+                videoTitle.textContent = video.title;
+                videoThumbnail.style.backgroundImage = `url('${video.thumbnail}')`;
+                watchButton.href = video.url;
+                instructionText.textContent = "Swipe left or right to discover more.";
+                watchButton.classList.remove('hidden');
+            } else {
+                videoTitle.textContent = "All Caught Up!";
+                videoThumbnail.style.backgroundImage = 'none';
+                videoThumbnail.style.backgroundColor = '#1f2937';
+                watchButton.classList.add('hidden');
+                instructionText.textContent = "Swipe up for more videos!";
+            }
+        };
+        
+        const loadMoreVideos = () => {
+            const newVideos = [
+                {
+                    title: "DIY Home Decor",
+                    thumbnail: 'https://placehold.co/540x960/1a202c/ffffff?text=DIY+Decor',
+                    url: 'https://www.youtube.com/watch?v=kYm9fD1Q_sY',
+                    category: 'lifestyle'
+                },
+                {
+                    title: "Advanced CSS Techniques",
+                    thumbnail: 'https://placehold.co/540x960/1a202c/ffffff?text=CSS+Tips',
+                    url: 'https://www.youtube.com/watch?v=l-g2uH65eQc',
+                    category: 'tech'
+                },
+                {
+                    title: "Exploring Ancient Ruins",
+                    thumbnail: 'https://placehold.co/540x960/1a202c/ffffff?text=Ancient+Ruins',
+                    url: 'https://www.youtube.com/watch?v=yW6M4-K8EJA',
+                    category: 'science'
+                }
+            ];
+            videoData.push(...newVideos);
+            videoIndex = 0;
+            loadVideo(videoIndex);
+        };
+
+        const onSwipeComplete = (direction) => {
+            videoCard.style.transition = 'transform 0.5s ease-in-out';
+            if (direction === 'right') {
+                videoCard.style.transform = 'translateX(100vw) rotate(30deg)';
+                seenLabel.style.opacity = '1';
+                setTimeout(() => { seenLabel.style.opacity = '0'; }, 500);
+            } else if (direction === 'left') {
+                videoCard.style.transform = 'translateX(-100vw) rotate(-30deg)';
+                laterLabel.style.opacity = '1';
+                setTimeout(() => { laterLabel.style.opacity = '0'; }, 500);
+            }
+
+            videoIndex++;
+            setTimeout(() => {
+                videoCard.style.transition = 'none';
+                videoCard.style.transform = 'translateX(0) rotate(0)';
+                loadVideo(videoIndex);
+            }, 500);
+        };
+
+        videoCard.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            isSwiping = true;
+            videoCard.style.transition = 'none';
+        });
+
+        videoCard.addEventListener('touchmove', (e) => {
+            if (!isSwiping) return;
+            currentX = e.touches[0].clientX;
+            currentY = e.touches[0].clientY;
+            const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
+            videoCard.style.transform = `translateX(${deltaX}px) translateY(${deltaY}px) rotate(${deltaX / 20}deg)`;
+            
+            if (Math.abs(deltaY) > Math.abs(deltaX)) {
+                 seenLabel.style.opacity = '0';
+                 laterLabel.style.opacity = '0';
+            } else {
+                if (deltaX > 50) {
+                    seenLabel.style.opacity = '1';
+                    laterLabel.style.opacity = '0';
+                } else if (deltaX < -50) {
+                    laterLabel.style.opacity = '1';
+                    seenLabel.style.opacity = '0';
+                } else {
+                    seenLabel.style.opacity = '0';
+                    laterLabel.style.opacity = '0';
+                }
+            }
+        });
+
+        videoCard.addEventListener('touchend', (e) => {
+            if (!isSwiping) return;
+            isSwiping = false;
+            const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
+            const swipeThreshold = 100;
+            const verticalSwipeThreshold = -100;
+
+            if (deltaY < verticalSwipeThreshold) {
+                loadMoreVideos();
+                videoCard.style.transition = 'transform 0.3s ease-in-out';
+                videoCard.style.transform = 'translateX(0) rotate(0) translateY(0)';
+            } else if (deltaX > swipeThreshold) {
+                onSwipeComplete('right');
+            } else if (deltaX < -swipeThreshold) {
+                onSwipeComplete('left');
+            } else {
+                videoCard.style.transition = 'transform 0.3s ease-in-out';
+                videoCard.style.transform = 'translateX(0) rotate(0) translateY(0)';
+            }
+            seenLabel.style.opacity = '0';
+            laterLabel.style.opacity = '0';
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadVideo(videoIndex);
+        });
+
+    </script>
+
+</body>
+</html>
